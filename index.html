@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smart Auto Pill Reminder System</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar" id="sidebar">
+
+    <div class="brand">
+      <div class="brand-icon">💊</div>
+      <div>
+        <h2>Smart Auto</h2>
+        <span>Pill Reminder</span>
+      </div>
+    </div>
+
+    <nav>
+      <button class="nav-item active" data-section="dashboard">
+        <span>▦</span> Dashboard
+      </button>
+
+      <button class="nav-item" data-section="medicines">
+        <span>💊</span> My Medicines
+      </button>
+
+      <button class="nav-item" data-section="reminders">
+        <span>⏰</span> Reminders
+      </button>
+
+      <button class="nav-item" data-section="history">
+        <span>📋</span> History
+      </button>
+
+      <button class="nav-item" data-section="progress">
+        <span>📊</span> Progress
+      </button>
+
+      <button class="nav-item" data-section="settings">
+        <span>⚙</span> Settings
+      </button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="help-card">
+        <div class="help-icon">💡</div>
+        <strong>Stay Healthy</strong>
+        <p>Never miss your medicine again.</p>
+      </div>
+    </div>
+
+  </aside>
+
+
+  <!-- MAIN -->
+  <main class="main">
+
+    <!-- TOP BAR -->
+    <header class="topbar">
+
+      <button class="menu-btn" id="menuBtn">☰</button>
+
+      <div class="page-title">
+        <span id="currentDate"></span>
+        <h1 id="pageHeading">Good Evening 👋</h1>
+      </div>
+
+      <div class="top-actions">
+        <button class="icon-btn" id="notificationBtn" title="Notifications">🔔</button>
+
+        <div class="profile">
+          <div class="avatar">U</div>
+          <div>
+            <strong>User</strong>
+            <small>Patient</small>
+          </div>
+        </div>
+      </div>
+
+    </header>
+
+
+    <!-- CONTENT -->
+    <div class="content">
+
+      <!-- ================= DASHBOARD ================= -->
+      <section id="dashboard" class="section active">
+
+        <div class="welcome-card">
+
+          <div>
+            <span class="eyebrow">SMART HEALTH MANAGEMENT</span>
+            <h2>Smart Auto Pill Reminder System</h2>
+            <p>
+              Manage your medicines, receive timely reminders and
+              keep track of your daily medication routine.
+            </p>
+
+            <button class="primary-btn" id="dashboardAddBtn">
+              + Add New Medicine
+            </button>
+          </div>
+
+          <div class="welcome-pill">💊</div>
+
+        </div>
+
+
+        <!-- STATS -->
+        <div class="stats-grid">
+
+          <div class="stat-card blue">
+            <div class="stat-icon">💊</div>
+            <div>
+              <span>Today's Doses</span>
+              <h3 id="todayTotal">0</h3>
+            </div>
+          </div>
+
+          <div class="stat-card green">
+            <div class="stat-icon">✓</div>
+            <div>
+              <span>Taken</span>
+              <h3 id="todayTaken">0</h3>
+            </div>
+          </div>
+
+          <div class="stat-card orange">
+            <div class="stat-icon">⏰</div>
+            <div>
+              <span>Upcoming</span>
+              <h3 id="todayUpcoming">0</h3>
+            </div>
+          </div>
+
+          <div class="stat-card red">
+            <div class="stat-icon">!</div>
+            <div>
+              <span>Missed</span>
+              <h3 id="todayMissed">0</h3>
+            </div>
+          </div>
+
+        </div>
+
+
+        <div class="dashboard-grid">
+
+          <!-- NEXT MEDICINE -->
+          <div class="panel next-dose">
+
+            <div class="panel-header">
+              <div>
+                <span class="panel-label">NEXT REMINDER</span>
+                <h3>Upcoming Medicine</h3>
+              </div>
+
+              <span class="live-dot">● Live</span>
+            </div>
+
+            <div id="nextMedicine">
+              <div class="empty-state">
+                <div>💊</div>
+                <p>No medicines added yet.</p>
+                <button class="secondary-btn" onclick="openMedicineModal()">
+                  Add Medicine
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+
+          <!-- TODAY -->
+          <div class="panel">
+
+            <div class="panel-header">
+              <div>
+                <span class="panel-label">TODAY</span>
+                <h3>Medication Schedule</h3>
+              </div>
+
+              <button class="text-btn" data-section-link="reminders">
+                View All →
+              </button>
+            </div>
+
+            <div id="todaySchedule" class="schedule-list"></div>
+
+          </div>
+
+        </div>
+
+
+        <!-- QUICK ACTIONS -->
+        <div class="section-title">
+          <div>
+            <span class="panel-label">QUICK ACTIONS</span>
+            <h2>Manage Your Health</h2>
+          </div>
+        </div>
+
+        <div class="quick-grid">
+
+          <button class="quick-card" onclick="openMedicineModal()">
+            <div class="quick-icon purple">＋</div>
+            <div>
+              <strong>Add Medicine</strong>
+              <span>Create a new reminder</span>
+            </div>
+          </button>
+
+          <button class="quick-card" data-section-link="history">
+            <div class="quick-icon teal">✓</div>
+            <div>
+              <strong>View History</strong>
+              <span>Check medication records</span>
+            </div>
+          </button>
+
+          <button class="quick-card" data-section-link="progress">
+            <div class="quick-icon orange">↗</div>
+            <div>
+              <strong>View Progress</strong>
+              <span>Track your adherence</span>
+            </div>
+          </button>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================= MEDICINES ================= -->
+      <section id="medicines" class="section">
+
+        <div class="section-heading">
+          <div>
+            <span class="panel-label">MEDICATION MANAGEMENT</span>
+            <h2>My Medicines</h2>
+            <p>Manage all your active and scheduled medicines.</p>
+          </div>
+
+          <button class="primary-btn" onclick="openMedicineModal()">
+            + Add Medicine
+          </button>
+        </div>
+
+        <div id="medicineGrid" class="medicine-grid"></div>
+
+      </section>
+
+
+      <!-- ================= REMINDERS ================= -->
+      <section id="reminders" class="section">
+
+        <div class="section-heading">
+          <div>
+            <span class="panel-label">SMART SCHEDULE</span>
+            <h2>Today's Reminders</h2>
+            <p>Keep track of your scheduled medication doses.</p>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div id="reminderList" class="reminder-list"></div>
+        </div>
+
+      </section>
+
+
+      <!-- ================= HISTORY ================= -->
+      <section id="history" class="section">
+
+        <div class="section-heading">
+          <div>
+            <span class="panel-label">MEDICATION RECORD</span>
+            <h2>Medication History</h2>
+            <p>Your recent medicine activity.</p>
+          </div>
+
+          <button class="secondary-btn" id="clearHistory">
+            Clear History
+          </button>
+        </div>
+
+        <div class="panel">
+          <div id="historyList"></div>
+        </div>
+
+      </section>
+
+
+      <!-- ================= PROGRESS ================= -->
+      <section id="progress" class="section">
+
+        <div class="section-heading">
+          <div>
+            <span class="panel-label">HEALTH INSIGHTS</span>
+            <h2>Medication Progress</h2>
+            <p>Monitor how consistently you follow your medication schedule.</p>
+          </div>
+        </div>
+
+        <div class="progress-grid">
+
+          <div class="panel adherence-card">
+
+            <span class="panel-label">OVERALL ADHERENCE</span>
+
+            <div class="circle-progress">
+              <div>
+                <strong id="adherencePercent">0%</strong>
+                <span>Adherence</span>
+              </div>
+            </div>
+
+            <p id="adherenceText">
+              Start taking your medicines on time to build your record.
+            </p>
+
+          </div>
+
+
+          <div class="panel">
+            <div class="panel-header">
+              <div>
+                <span class="panel-label">SUMMARY</span>
+                <h3>Medication Statistics</h3>
+              </div>
+            </div>
+
+            <div class="progress-stat">
+              <span>Total Doses</span>
+              <strong id="progressTotal">0</strong>
+            </div>
+
+            <div class="progress-stat">
+              <span>Doses Taken</span>
+              <strong class="green-text" id="progressTaken">0</strong>
+            </div>
+
+            <div class="progress-stat">
+              <span>Doses Missed</span>
+              <strong class="red-text" id="progressMissed">0</strong>
+            </div>
+
+          </div>
+
+        </div>
+
+      </section>
+
+
+      <!-- ================= SETTINGS ================= -->
+      <section id="settings" class="section">
+
+        <div class="section-heading">
+          <div>
+            <span class="panel-label">PREFERENCES</span>
+            <h2>Settings</h2>
+            <p>Customize your Smart Auto Pill Reminder System.</p>
+          </div>
+        </div>
+
+        <div class="settings-grid">
+
+          <div class="panel">
+
+            <h3>Reminder Settings</h3>
+
+            <label class="setting-row">
+              <div>
+                <strong>Browser Notifications</strong>
+                <span>Receive reminders through browser notifications.</span>
+              </div>
+
+              <input type="checkbox" id="notificationSetting" checked>
+            </label>
+
+            <label class="setting-row">
+              <div>
+                <strong>Reminder Sound</strong>
+                <span>Play a sound when a medicine is due.</span>
+              </div>
+
+              <input type="checkbox" id="soundSetting" checked>
+            </label>
+
+          </div>
+
+
+          <div class="panel">
+
+            <h3>Emergency Contact</h3>
+
+            <div class="form-group">
+              <label>Contact Name</label>
+              <input type="text" id="emergencyName" placeholder="e.g. Family Member">
+            </div>
+
+            <div class="form-group">
+              <label>Phone Number</label>
+              <input type="tel" id="emergencyPhone" placeholder="+91 XXXXX XXXXX">
+            </div>
+
+            <button class="primary-btn" id="saveSettings">
+              Save Settings
+            </button>
+
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+
+  <!-- MEDICINE MODAL -->
+  <div class="modal-overlay" id="medicineModal">
+
+    <div class="modal">
+
+      <div class="modal-header">
+        <div>
+          <span class="panel-label">MEDICATION</span>
+          <h2>Add New Medicine</h2>
+        </div>
+
+        <button class="close-btn" onclick="closeMedicineModal()">×</button>
+      </div>
+
+      <form id="medicineForm">
+
+        <div class="form-group">
+          <label>Medicine Name *</label>
+          <input type="text" id="medicineName" placeholder="e.g. Paracetamol" required>
+        </div>
+
+        <div class="form-row">
+
+          <div class="form-group">
+            <label>Dosage</label>
+            <input type="text" id="dosage" placeholder="e.g. 500 mg">
+          </div>
+
+          <div class="form-group">
+            <label>Medicine Type</label>
+            <select id="medicineType">
+              <option>Tablet</option>
+              <option>Capsule</option>
+              <option>Syrup</option>
+              <option>Injection</option>
+              <option>Other</option>
+            </select>
+          </div>
+
+        </div>
+
+        <div class="form-group">
+          <label>Instructions</label>
+          <input type="text" id="instructions" placeholder="e.g. After food">
+        </div>
+
+        <div class="form-row">
+
+          <div class="form-group">
+            <label>Start Date *</label>
+            <input type="date" id="startDate" required>
+          </div>
+
+          <div class="form-group">
+            <label>End Date</label>
+            <input type="date" id="endDate">
+          </div>
+
+        </div>
+
+        <div class="form-group">
+          <label>Reminder Time</label>
+
+          <div class="time-input-row">
+            <input type="time" id="medicineTime" required>
+            <button type="button" class="add-time-btn" id="addTimeBtn">+ Add Time</button>
+          </div>
+
+          <div id="selectedTimes" class="selected-times"></div>
+        </div>
+
+        <div class="form-group">
+          <label>Color</label>
+
+          <div class="color-picker">
+            <label><input type="radio" name="color" value="#6c63ff" checked><span style="background:#6c63ff"></span></label>
+            <label><input type="radio" name="color" value="#00b894"><span style="background:#00b894"></span></label>
+            <label><input type="radio" name="color" value="#ff9f43"><span style="background:#ff9f43"></span></label>
+            <label><input type="radio" name="color" value="#ff5b6e"><span style="background:#ff5b6e"></span></label>
+            <label><input type="radio" name="color" value="#0984e3"><span style="background:#0984e3"></span></label>
+          </div>
+
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="secondary-btn" onclick="closeMedicineModal()">
+            Cancel
+          </button>
+
+          <button type="submit" class="primary-btn">
+            Save Medicine
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+
+  </div>
+
+
+  <!-- TOAST -->
+  <div id="toast" class="toast">
+    <span id="toastIcon">✓</span>
+    <span id="toastMessage">Done</span>
+  </div>
+
+
+  <script src="app.js"></script>
+
+</body>
+</html>
