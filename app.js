@@ -36,8 +36,11 @@ document.addEventListener("DOMContentLoaded", () => {
   loadSettings();
   renderAll();
 
-  setInterval(checkReminders, 30000);
+  // Check every second so the reminder time is not missed
+setInterval(checkReminders, 1000);
 
+// Enable audio after the user's first interaction
+document.addEventListener("click", enableReminderAudio, { once: true });
 });
 
 
@@ -1353,158 +1356,203 @@ function notifyUser(title, body) {
 
 
 /* =========================================================
-   LONG ALARM + SPOKEN MEDICINE REMINDER
+   RELIABLE LOUD ALARM + SPOKEN MEDICINE REMINDER
 ========================================================= */
 
 let lastNotificationKeys = new Set();
-let activeAlarm = null;
+let activeAlarm = false;
+let activeMedicineNames = [];
 let alarmAudioContext = null;
 let alarmLoopTimer = null;
 let alarmVoiceTimer = null;
 let lastSpokenAt = 0;
 
+
+// Call this after the user's first click on the page
+function enableReminderAudio() {
+  try {
+    const AudioContextClass =
+      window.AudioContext || window.webkitAudioContext;
+
+    if (AudioContextClass && !alarmAudioContext) {
+      alarmAudioContext = new AudioContextClass();
+    }
+
+    if (
+      alarmAudioContext &&
+      alarmAudioContext.state === "suspended"
+    ) {
+      alarmAudioContext.resume();
+    }
+  } catch (error) {
+    console.log("Audio could not be enabled:", error);
+  }
+}
+
+
+// Check every second for a scheduled medicine
 function checkReminders() {
   const now = new Date();
 
   const currentTime =
-    `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+    String(now.getHours()).padStart(2, "0") + ":" +
+    String(now.getMinutes()).padStart(2, "0");
 
-  const doses = getTodayDoses();
+  const dueDoses = getTodayDoses().filter(dose =>
+    dose.time === currentTime &&
+    dose.status !== "taken" &&
+    dose.status !== "missed"
+  );
 
-  doses.forEach(dose => {
-    if (
-      dose.time !== currentTime ||
-      dose.status === "taken" ||
-      dose.status === "missed"
-    ) {
-      return;
-    }
+  const newDoses = dueDoses.filter(dose => {
+    const key = getToday() + "_" + dose.doseId;
+    return !lastNotificationKeys.has(key);
+  });
 
-    const key = `${getToday()}_${dose.doseId}`;
+  if (!newDoses.length) return;
 
-    if (lastNotificationKeys.has(key)) return;
-
-    lastNotificationKeys.add(key);
+  newDoses.forEach(dose => {
+    lastNotificationKeys.add(
+      getToday() + "_" + dose.doseId
+    );
 
     notifyUser(
-      "💊 Medicine Time!",
-      `${dose.medicineName} lene ka time ho gaya hai.`
+      "Medicine Time!",
+      dose.medicineName + " lene ka time ho gaya hai."
     );
 
-    showToast(
-      `Medicine time! ${dose.medicineName}`,
-      "💊"
-    );
-
-    if (settings.sound) {
-      playReminderSound(dose.medicineName);
-    }
+    showToast("Medicine time! " + dose.medicineName, "💊");
   });
+
+  // Combine simultaneous doses into one alarm
+  const names = newDoses.map(dose => dose.medicineName);
+  startReminderAlarm(names);
 }
 
 
-// Repeating alarm with spoken medicine name
-function playReminderSound(medicineName) {
-  stopReminderAlarm();
+// Start a repeating alarm
+function startReminderAlarm(medicineNames) {
+  if (!settings.sound) return;
 
-  activeAlarm = medicineName;
+  if (activeAlarm) {
+    // Add any other medicine due at the same time
+    activeMedicineNames = [
+      ...new Set([...activeMedicineNames, ...medicineNames])
+    ];
+    return;
+  }
+
+  activeAlarm = true;
+  activeMedicineNames = [...new Set(medicineNames)];
   lastSpokenAt = 0;
 
-  function playTone() {
-    if (!activeAlarm || !settings.sound) return;
+  enableReminderAudio();
 
-    try {
-      const AudioContextClass =
-        window.AudioContext || window.webkitAudioContext;
+  playLoudAlarmTone();
+  speakMedicineReminder();
 
-      if (!AudioContextClass) return;
-
-      if (!alarmAudioContext) {
-        alarmAudioContext = new AudioContextClass();
-      }
-
-      if (alarmAudioContext.state === "suspended") {
-        alarmAudioContext.resume();
-      }
-
-      const ctx = alarmAudioContext;
-      const oscillator = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
-      oscillator.frequency.setValueAtTime(
-        660,
-        ctx.currentTime + 0.3
-      );
-
-      gain.gain.setValueAtTime(0.001, ctx.currentTime);
-      gain.gain.linearRampToValueAtTime(
-        0.18,
-        ctx.currentTime + 0.04
-      );
-      gain.gain.setValueAtTime(
-        0.18,
-        ctx.currentTime + 0.45
-      );
-      gain.gain.linearRampToValueAtTime(
-        0.001,
-        ctx.currentTime + 0.6
-      );
-
-      oscillator.connect(gain);
-      gain.connect(ctx.destination);
-
-      oscillator.start();
-      oscillator.stop(ctx.currentTime + 0.65);
-    } catch (error) {
-      console.log("Alarm sound unavailable", error);
+  // Repeat loud tones until the alarm is stopped
+  alarmLoopTimer = setInterval(() => {
+    if (activeAlarm && settings.sound) {
+      playLoudAlarmTone();
     }
-  }
+  }, 1000);
 
-  function speakReminder() {
-    if (
-      !activeAlarm ||
-      !settings.sound ||
-      !("speechSynthesis" in window)
-    ) {
-      return;
-    }
-
-    // Don't interrupt the previous spoken reminder.
-    if (speechSynthesis.speaking) return;
-
-    const utterance = new SpeechSynthesisUtterance(
-      `Medicine time! ${medicineName}. Please take your medicine now.`
-    );
-
-    utterance.lang = "en-IN";
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
-    utterance.volume = 1;
-
-    speechSynthesis.speak(utterance);
-    lastSpokenAt = Date.now();
-  }
-
-  playTone();
-  speakReminder();
-
-  // A longer, repeating alarm
-  alarmLoopTimer = setInterval(playTone, 1200);
-
-  // Repeat the voice approximately every 8 seconds
+  // Repeat spoken reminder approximately every 6 seconds
   alarmVoiceTimer = setInterval(() => {
-    if (Date.now() - lastSpokenAt >= 8000) {
-      speakReminder();
+    if (
+      activeAlarm &&
+      settings.sound &&
+      Date.now() - lastSpokenAt >= 6000
+    ) {
+      speakMedicineReminder();
     }
   }, 1000);
 }
 
 
-// Stop all alarm sounds and spoken reminders
+// Louder two-part alarm tone
+function playLoudAlarmTone() {
+  if (!activeAlarm || !settings.sound) return;
+
+  try {
+    enableReminderAudio();
+
+    const ctx = alarmAudioContext;
+    if (!ctx || ctx.state !== "running") return;
+
+    [880, 1100].forEach((frequency, index) => {
+      const startAt = ctx.currentTime + index * 0.32;
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      oscillator.type = "square";
+      oscillator.frequency.setValueAtTime(frequency, startAt);
+
+      gain.gain.setValueAtTime(0.001, startAt);
+      gain.gain.linearRampToValueAtTime(0.35, startAt + 0.04);
+      gain.gain.setValueAtTime(0.35, startAt + 0.20);
+      gain.gain.linearRampToValueAtTime(0.001, startAt + 0.28);
+
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
+
+      oscillator.start(startAt);
+      oscillator.stop(startAt + 0.30);
+    });
+  } catch (error) {
+    console.log("Alarm tone error:", error);
+  }
+}
+
+
+// Speak the reminder and medicine name
+function speakMedicineReminder() {
+  if (
+    !activeAlarm ||
+    !settings.sound ||
+    !("speechSynthesis" in window)
+  ) {
+    return;
+  }
+
+  if (window.speechSynthesis.speaking) return;
+
+  const names = activeMedicineNames.join(" and ");
+
+  const message =
+    "Attention! Medicine time. " +
+    names +
+    ". Please take your medicine now. " +
+    "I repeat, it is time to take " +
+    names + ".";
+
+  const utterance = new SpeechSynthesisUtterance(message);
+
+  utterance.lang = "en-IN";
+  utterance.rate = 0.82;
+  utterance.pitch = 1;
+  utterance.volume = 1;
+
+  utterance.onend = () => {
+    lastSpokenAt = Date.now();
+  };
+
+  utterance.onerror = event => {
+    console.log("Voice reminder error:", event.error);
+    lastSpokenAt = Date.now();
+  };
+
+  lastSpokenAt = Date.now();
+
+  window.speechSynthesis.speak(utterance);
+}
+
+
+// Stop repeating tones and spoken reminders
 function stopReminderAlarm() {
-  activeAlarm = null;
+  activeAlarm = false;
+  activeMedicineNames = [];
 
   if (alarmLoopTimer) {
     clearInterval(alarmLoopTimer);
@@ -1517,7 +1565,7 @@ function stopReminderAlarm() {
   }
 
   if ("speechSynthesis" in window) {
-    speechSynthesis.cancel();
+    window.speechSynthesis.cancel();
   }
 }
 
