@@ -964,6 +964,9 @@ function markDose(doseId, status) {
 
   if (!dose)
     return;
+  if (status === "taken" || status === "missed") {
+    stopReminderAlarm();
+  }
 
 
   const record = {
@@ -1234,6 +1237,9 @@ function setupSettings() {
         document.getElementById(
           "soundSetting"
         ).checked;
+       if (!settings.sound) {
+  stopReminderAlarm();
+}
 
       settings.emergencyName =
         document.getElementById(
@@ -1345,100 +1351,175 @@ function notifyUser(title, body) {
 // AUTOMATIC REMINDER CHECK
 // =========================================================
 
-let lastNotificationKey = "";
 
+/* =========================================================
+   LONG ALARM + SPOKEN MEDICINE REMINDER
+========================================================= */
+
+let lastNotificationKeys = new Set();
+let activeAlarm = null;
+let alarmAudioContext = null;
+let alarmLoopTimer = null;
+let alarmVoiceTimer = null;
+let lastSpokenAt = 0;
 
 function checkReminders() {
-
   const now = new Date();
 
   const currentTime =
-    `${String(now.getHours()).padStart(2,"0")}:${String(now.getMinutes()).padStart(2,"0")}`;
+    `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
 
-  const doses =
-    getTodayDoses();
-
+  const doses = getTodayDoses();
 
   doses.forEach(dose => {
-
     if (
-      dose.time === currentTime &&
-      dose.status !== "taken"
+      dose.time !== currentTime ||
+      dose.status === "taken" ||
+      dose.status === "missed"
     ) {
-
-      const key =
-        `${getToday()}_${dose.doseId}`;
-
-      if (lastNotificationKey === key)
-        return;
-
-      lastNotificationKey = key;
-
-
-      notifyUser(
-        "💊 Medicine Reminder",
-        `${dose.medicineName} is due now.`
-      );
-
-
-      showToast(
-        `Reminder: ${dose.medicineName} is due now`,
-        "💊"
-      );
-
-
-      if (settings.sound)
-        playReminderSound();
-
+      return;
     }
 
-  });
+    const key = `${getToday()}_${dose.doseId}`;
 
+    if (lastNotificationKeys.has(key)) return;
+
+    lastNotificationKeys.add(key);
+
+    notifyUser(
+      "💊 Medicine Time!",
+      `${dose.medicineName} lene ka time ho gaya hai.`
+    );
+
+    showToast(
+      `Medicine time! ${dose.medicineName}`,
+      "💊"
+    );
+
+    if (settings.sound) {
+      playReminderSound(dose.medicineName);
+    }
+  });
 }
 
 
-function playReminderSound() {
+// Repeating alarm with spoken medicine name
+function playReminderSound(medicineName) {
+  stopReminderAlarm();
 
-  try {
+  activeAlarm = medicineName;
+  lastSpokenAt = 0;
 
-    const AudioContext =
-      window.AudioContext ||
-      window.webkitAudioContext;
+  function playTone() {
+    if (!activeAlarm || !settings.sound) return;
 
-    const ctx =
-      new AudioContext();
+    try {
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
 
-    const oscillator =
-      ctx.createOscillator();
+      if (!AudioContextClass) return;
 
-    const gain =
-      ctx.createGain();
+      if (!alarmAudioContext) {
+        alarmAudioContext = new AudioContextClass();
+      }
 
+      if (alarmAudioContext.state === "suspended") {
+        alarmAudioContext.resume();
+      }
 
-    oscillator.connect(gain);
-    gain.connect(ctx.destination);
+      const ctx = alarmAudioContext;
+      const oscillator = ctx.createOscillator();
+      const gain = ctx.createGain();
 
-    oscillator.frequency.value = 800;
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+      oscillator.frequency.setValueAtTime(
+        660,
+        ctx.currentTime + 0.3
+      );
 
-    gain.gain.setValueAtTime(
-      .15,
-      ctx.currentTime
-    );
+      gain.gain.setValueAtTime(0.001, ctx.currentTime);
+      gain.gain.linearRampToValueAtTime(
+        0.18,
+        ctx.currentTime + 0.04
+      );
+      gain.gain.setValueAtTime(
+        0.18,
+        ctx.currentTime + 0.45
+      );
+      gain.gain.linearRampToValueAtTime(
+        0.001,
+        ctx.currentTime + 0.6
+      );
 
-    oscillator.start();
+      oscillator.connect(gain);
+      gain.connect(ctx.destination);
 
-    oscillator.stop(
-      ctx.currentTime + .25
-    );
-
-  } catch (error) {
-
-    console.log("Sound unavailable");
-
+      oscillator.start();
+      oscillator.stop(ctx.currentTime + 0.65);
+    } catch (error) {
+      console.log("Alarm sound unavailable", error);
+    }
   }
 
+  function speakReminder() {
+    if (
+      !activeAlarm ||
+      !settings.sound ||
+      !("speechSynthesis" in window)
+    ) {
+      return;
+    }
+
+    // Don't interrupt the previous spoken reminder.
+    if (speechSynthesis.speaking) return;
+
+    const utterance = new SpeechSynthesisUtterance(
+      `Medicine time! ${medicineName}. Please take your medicine now.`
+    );
+
+    utterance.lang = "en-IN";
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+
+    speechSynthesis.speak(utterance);
+    lastSpokenAt = Date.now();
+  }
+
+  playTone();
+  speakReminder();
+
+  // A longer, repeating alarm
+  alarmLoopTimer = setInterval(playTone, 1200);
+
+  // Repeat the voice approximately every 8 seconds
+  alarmVoiceTimer = setInterval(() => {
+    if (Date.now() - lastSpokenAt >= 8000) {
+      speakReminder();
+    }
+  }, 1000);
 }
 
+
+// Stop all alarm sounds and spoken reminders
+function stopReminderAlarm() {
+  activeAlarm = null;
+
+  if (alarmLoopTimer) {
+    clearInterval(alarmLoopTimer);
+    alarmLoopTimer = null;
+  }
+
+  if (alarmVoiceTimer) {
+    clearInterval(alarmVoiceTimer);
+    alarmVoiceTimer = null;
+  }
+
+  if ("speechSynthesis" in window) {
+    speechSynthesis.cancel();
+  }
+}
 
 // =========================================================
 // UTILITY
